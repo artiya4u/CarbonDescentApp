@@ -1,6 +1,7 @@
 import React from 'react';
 import {StyleSheet, SafeAreaView} from "react-native";
 import {EvaIconsPack} from '@ui-kitten/eva-icons';
+import {Magnetometer} from 'expo-sensors';
 import {ApplicationProvider, IconRegistry, Icon, Layout, Text, Button, Modal, Input} from '@ui-kitten/components';
 import {mapping} from '@eva-design/eva';
 import {theme} from './themes';
@@ -12,6 +13,14 @@ const NavIcon = (style) => (
 const ServerIcon = (style) => (
   <Icon {...style} name='link'/>
 );
+
+function round(n) {
+  if (!n) {
+    return 0;
+  }
+
+  return Math.floor(n * 100) / 100;
+}
 
 export class HomeScreen extends React.Component {
   state = {
@@ -25,6 +34,8 @@ export class HomeScreen extends React.Component {
       heartrate: new Date(),
     },
     modalVisible: false,
+    magnetometer: 0,
+    setDirection: null,
   };
 
   ws = null;
@@ -117,6 +128,47 @@ export class HomeScreen extends React.Component {
     this.setState({modalVisible: true});
   };
 
+  subscribeMagnetometer = () => {
+    Magnetometer.addListener(data => {
+      this.setState({magnetometer: this._angle(data)});
+      if (this.ws !== null) {
+        let steeringMessage = {
+          type: 'steering',
+          value: 0,
+        };
+        this.ws.send(JSON.stringify(steeringMessage));
+      }
+    });
+    Magnetometer.setUpdateInterval(50);
+  };
+
+  componentDidMount() {
+    this.subscribeMagnetometer();
+  }
+
+  _angle = (magnetometer) => {
+    let angle = 0;
+    if (magnetometer) {
+      let {x, y, z} = magnetometer;
+
+      if (Math.atan2(y, x) >= 0) {
+        angle = Math.atan2(y, x) * (180 / Math.PI);
+      } else {
+        angle = (Math.atan2(y, x) + 2 * Math.PI) * (180 / Math.PI);
+      }
+    }
+
+    return Math.round(angle);
+  };
+
+  _degree = (magnetometer) => {
+    return magnetometer - 90 >= 0 ? magnetometer - 90 : magnetometer + 271;
+  };
+
+  setCenter = () => {
+    this.setState({setDirection: this._degree(this.state.magnetometer)});
+  };
+
   render() {
     return (
       <SafeAreaView style={{flex: 1, paddingTop: '10%'}}>
@@ -146,9 +198,12 @@ export class HomeScreen extends React.Component {
           <Button style={styles.buttonStyle} icon={ServerIcon} onPress={this.onEditServerPress}>
             CONNECT SERVER
           </Button>
-          <Button style={styles.buttonStyle} icon={NavIcon}>
+          <Button style={styles.buttonStyle} icon={NavIcon} onPress={this.setCenter}>
             SET CENTER
           </Button>
+          <Text style={styles.text}>
+            Angle: {this._degree(this.state.magnetometer)}
+          </Text>
         </Layout>
         <Modal
           allowBackdrop={true}

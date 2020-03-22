@@ -9,12 +9,13 @@
   },
   "dependencies": {
     "@eva-design/eva": "^1.4.0",
-    "@ui-kitten/eva-icons": "^4.4.1",
     "@ui-kitten/components": "^4.4.1",
+    "@ui-kitten/eva-icons": "^4.4.1",
     "expo": "~36.0.0",
-    "expo-font": "^8.0.0",
-    "expo-web-browser": "^8.0.0",
     "expo-asset": "^8.0.0",
+    "expo-font": "^8.0.0",
+    "expo-sensors": "~8.0.0",
+    "expo-web-browser": "^8.0.0",
     "react": "~16.9.0",
     "react-dom": "~16.9.0",
     "react-native": "https://github.com/expo/react-native/archive/sdk-36.0.0.tar.gz",
@@ -22,8 +23,8 @@
     "react-native-web": "~0.11.7"
   },
   "devDependencies": {
-    "babel-preset-expo": "~8.0.0",
-    "@babel/core": "^7.0.0"
+    "@babel/core": "^7.0.0",
+    "babel-preset-expo": "~8.0.0"
   },
   "private": true
 }
