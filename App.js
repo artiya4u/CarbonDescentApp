@@ -99,11 +99,11 @@ export class HomeScreen extends React.Component {
       <Layout
         level='3'
         style={styles.modalContainer}>
-        <Text style={[{marginTop: 30}]} category='p1'>Server URL:</Text>
+        <Text style={[{marginTop: 30}]} category='p1'>SERVER URL:</Text>
         <Input
           style={[styles.inputStyle]}
           value={this.state.server}
-          placeholder='Full name'
+          placeholder='ws://...'
           onChangeText={this.onChangeServer}
           icon={ServerIcon}
         />
@@ -189,7 +189,7 @@ export const styles = StyleSheet.create({
   },
   modalContainer: {
     width: 300,
-    height: 200,
+    height: 180,
     justifyContent: 'center',
     alignItems: 'center',
   },
