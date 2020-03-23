@@ -154,7 +154,7 @@ export class HomeScreen extends React.Component {
   };
 
   calcSteering = () => {
-    let steer_dead_zone = 0.25;
+    let steer_dead_zone = 0.22;
     let change = (this.state.heading - this.state.center + 540) % 360 - 180;
     let steer = change / 90;
     // Add dead zones
