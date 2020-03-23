@@ -8,21 +8,22 @@ import {ApplicationProvider, IconRegistry, Icon, Layout, Text, Button, Modal, In
 import {mapping} from '@eva-design/eva';
 import {theme} from './themes';
 
-const NavIcon = (style) => (
+const IconNav = (style) => (
   <Icon {...style} name='navigation'/>
 );
 
-const ServerIcon = (style) => (
+const IconServer = (style) => (
   <Icon {...style} name='link'/>
 );
 
-function round(n) {
-  if (!n) {
-    return 0;
-  }
+const IconGo = (style) => (
+  <Icon {...style} name='arrowhead-up'/>
+);
 
-  return Math.floor(n * 100) / 100;
-}
+const IconStop = (style) => (
+  <Icon {...style} name='stop-circle'/>
+);
+
 
 export class HomeScreen extends React.Component {
   state = {
@@ -39,6 +40,7 @@ export class HomeScreen extends React.Component {
     heading: 0,
     center: null,
     steering: 0,
+    raw: 0,
   };
 
   ws = null;
@@ -119,7 +121,7 @@ export class HomeScreen extends React.Component {
           value={this.state.server}
           placeholder='ws://...'
           onChangeText={this.onChangeServer}
-          icon={ServerIcon}
+          icon={IconServer}
         />
         <Button style={[styles.inputStyle]} status='primary' appearance='ghost'
                 onPress={this.setModalVisible}>OK</Button>
@@ -131,8 +133,28 @@ export class HomeScreen extends React.Component {
     this.setState({modalVisible: true});
   };
 
+  onMovePress = () => {
+    if (this.ws !== null && this.ws.readyState === 1) {
+      let moveMsg = {
+        type: 'move',
+        value: 30,
+      };
+      this.ws.send(JSON.stringify(moveMsg));
+    }
+  };
+
+  onStopPress = () => {
+    if (this.ws !== null && this.ws.readyState === 1) {
+      let breakMsg = {
+        type: 'break',
+        value: 0,
+      };
+      this.ws.send(JSON.stringify(breakMsg));
+    }
+  };
+
   calcSteering = () => {
-    let steer_dead_zone = 0.2;
+    let steer_dead_zone = 0.25;
     let change = (this.state.heading - this.state.center + 540) % 360 - 180;
     let steer = change / 90;
     // Add dead zones
@@ -144,6 +166,17 @@ export class HomeScreen extends React.Component {
     this.setState({steering: steer});
   };
 
+  sendSteering = () => {
+    if (this.ws !== null && this.ws.readyState === 1) {
+      // Find steering
+      let steeringMessage = {
+        type: 'steering',
+        value: this.state.steering,
+      };
+      this.ws.send(JSON.stringify(steeringMessage));
+    }
+  };
+
   subscribeHeading = async () => {
     await Location.watchHeadingAsync((data) => {
       if (this.state.center === null) {
@@ -151,14 +184,7 @@ export class HomeScreen extends React.Component {
       }
       this.setState({heading: data.trueHeading});
       this.calcSteering();
-      if (this.ws !== null && this.ws.readyState === 1) {
-        // Find steering
-        let steeringMessage = {
-          type: 'steering',
-          value: this.state.steering,
-        };
-        this.ws.send(JSON.stringify(steeringMessage));
-      }
+      this.sendSteering();
     });
   };
 
@@ -185,6 +211,7 @@ export class HomeScreen extends React.Component {
   setCenter = () => {
     this.setState({center: this.state.heading});
     this.calcSteering();
+    this.sendSteering();
   };
 
   render() {
@@ -212,19 +239,26 @@ export class HomeScreen extends React.Component {
             </Layout>
           </Layout>
         </Layout>
-        <Layout style={{alignItems: 'center', marginTop: 50}}>
-          <Button style={styles.buttonStyle} icon={ServerIcon} onPress={this.onEditServerPress}>
-            CONNECT SERVER
-          </Button>
-          <Button style={styles.buttonStyle} icon={NavIcon} onPress={this.setCenter}>
-            SET CENTER
-          </Button>
+        <Layout style={{alignItems: 'center', marginTop: 20}}>
           <Text style={styles.text}>
             Heading: {this.state.heading.toFixed(1)}
           </Text>
           <Text style={styles.text}>
-            Steering: {this.state.steering.toFixed(1)}
+            Steering: {this.state.steering.toFixed(2)}
           </Text>
+          <Button style={styles.buttonStyle} icon={IconNav} onPress={this.setCenter}>
+            SET CENTER
+          </Button>
+          <Button style={styles.buttonStyle} icon={IconGo} onPress={this.onMovePress}>
+            MOVE
+          </Button>
+          <Button style={styles.buttonStyle} icon={IconStop} onPress={this.onStopPress}>
+            STOP
+          </Button>
+          <Layout style={{marginTop: 40}}/>
+          <Button style={styles.buttonStyle} icon={IconServer} onPress={this.onEditServerPress}>
+            CONNECT SERVER
+          </Button>
         </Layout>
         <Modal
           allowBackdrop={true}
