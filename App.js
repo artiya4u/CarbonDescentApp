@@ -1,7 +1,9 @@
 import React from 'react';
 import {StyleSheet, SafeAreaView} from "react-native";
 import {EvaIconsPack} from '@ui-kitten/eva-icons';
-import {Magnetometer} from 'expo-sensors';
+import * as Location from 'expo-location';
+import * as Permissions from 'expo-permissions';
+import Constants from 'expo-constants';
 import {ApplicationProvider, IconRegistry, Icon, Layout, Text, Button, Modal, Input} from '@ui-kitten/components';
 import {mapping} from '@eva-design/eva';
 import {theme} from './themes';
@@ -34,8 +36,9 @@ export class HomeScreen extends React.Component {
       heartrate: new Date(),
     },
     modalVisible: false,
-    magnetometer: 0,
-    setDirection: null,
+    heading: 0,
+    center: null,
+    steering: 0,
   };
 
   ws = null;
@@ -128,50 +131,65 @@ export class HomeScreen extends React.Component {
     this.setState({modalVisible: true});
   };
 
-  subscribeMagnetometer = () => {
-    Magnetometer.addListener(data => {
-      this.setState({magnetometer: this._angle(data)});
-      if (this.ws !== null) {
+  calcSteering = () => {
+    let steer_dead_zone = 0.2;
+    let change = (this.state.heading - this.state.center + 540) % 360 - 180;
+    let steer = change / 90;
+    // Add dead zones
+    if (steer > 0) {
+      steer += steer_dead_zone;
+    } else if (steer < 0) {
+      steer -= steer_dead_zone;
+    }
+    this.setState({steering: steer});
+  };
+
+  subscribeHeading = async () => {
+    await Location.watchHeadingAsync((data) => {
+      if (this.state.center === null) {
+        this.setState({center: data.trueHeading});
+      }
+      this.setState({heading: data.trueHeading});
+      this.calcSteering();
+      if (this.ws !== null && this.ws.readyState === 1) {
+        // Find steering
         let steeringMessage = {
           type: 'steering',
-          value: 0,
+          value: this.state.steering,
         };
         this.ws.send(JSON.stringify(steeringMessage));
       }
     });
-    Magnetometer.setUpdateInterval(50);
   };
 
-  componentDidMount() {
-    this.subscribeMagnetometer();
+  _getLocationAsync = async () => {
+    let {status} = await Permissions.askAsync(Permissions.LOCATION);
+    if (status !== 'granted') {
+      this.setState({
+        errorMessage: 'Permission to access location was denied',
+      });
+    }
+  };
+
+  async componentDidMount() {
+    if (Platform.OS === 'android' && !Constants.isDevice) {
+      this.setState({
+        errorMessage: 'Oops, this will not work on Sketch in an Android emulator. Try it on your device!',
+      });
+    } else {
+      this._getLocationAsync();
+    }
+    await this.subscribeHeading();
   }
 
-  _angle = (magnetometer) => {
-    let angle = 0;
-    if (magnetometer) {
-      let {x, y, z} = magnetometer;
-
-      if (Math.atan2(y, x) >= 0) {
-        angle = Math.atan2(y, x) * (180 / Math.PI);
-      } else {
-        angle = (Math.atan2(y, x) + 2 * Math.PI) * (180 / Math.PI);
-      }
-    }
-
-    return Math.round(angle);
-  };
-
-  _degree = (magnetometer) => {
-    return magnetometer - 90 >= 0 ? magnetometer - 90 : magnetometer + 271;
-  };
-
   setCenter = () => {
-    this.setState({setDirection: this._degree(this.state.magnetometer)});
+    this.setState({center: this.state.heading});
+    this.calcSteering();
   };
 
   render() {
     return (
-      <SafeAreaView style={{flex: 1, paddingTop: '10%'}}>
+      <SafeAreaView style={{flex: 1, paddingTop: '30%'}}>
         <Layout style={{alignItems: 'center'}}>
           <Layout style={styles.rowContainer}>
             <Text>KPH</Text>
@@ -202,7 +220,10 @@ export class HomeScreen extends React.Component {
             SET CENTER
           </Button>
           <Text style={styles.text}>
-            Angle: {this._degree(this.state.magnetometer)}
+            Heading: {this.state.heading.toFixed(1)}
+          </Text>
+          <Text style={styles.text}>
+            Steering: {this.state.steering.toFixed(1)}
           </Text>
         </Layout>
         <Modal
