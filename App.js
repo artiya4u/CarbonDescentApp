@@ -1,12 +1,11 @@
 import React from 'react';
 import {StyleSheet, SafeAreaView} from "react-native";
 import {EvaIconsPack} from '@ui-kitten/eva-icons';
-import * as Location from 'expo-location';
-import * as Permissions from 'expo-permissions';
-import Constants from 'expo-constants';
+import {Accelerometer} from 'expo-sensors';
 import {ApplicationProvider, IconRegistry, Icon, Layout, Text, Button, Modal, Input} from '@ui-kitten/components';
 import {mapping} from '@eva-design/eva';
 import {theme} from './themes';
+import Filter from "./Filter";
 
 const IconNav = (style) => (
   <Icon {...style} name='navigation'/>
@@ -24,10 +23,15 @@ const IconStop = (style) => (
   <Icon {...style} name='stop-circle'/>
 );
 
+const RIGHT = 0.4;
+const CENTER = 0;
+const LEFT = -RIGHT;
+
+const PITCH_THRESHOLD = 8;
 
 export class HomeScreen extends React.Component {
   state = {
-    server: 'ws://192.168.1.101:8088/',
+    server: 'ws://192.168.1.100:8088/',
     speed: 'n/a',
     cadence: 'n/a',
     heartrate: 'n/a',
@@ -37,13 +41,19 @@ export class HomeScreen extends React.Component {
       heartrate: new Date(),
     },
     modalVisible: false,
-    heading: 0,
-    center: null,
-    steering: 0,
-    raw: 0,
   };
 
   ws = null;
+  currentDirection = 0;
+  mFilters = new Array(2);
+
+  constructor(props) {
+    super(props);
+    for (let i = 0; i < 2; i++) {
+      this.mFilters[i] = new Filter();
+    }
+  }
+
 
   clearValue = (key) => {
     setTimeout(() => {
@@ -171,48 +181,56 @@ export class HomeScreen extends React.Component {
       // Find steering
       let steeringMessage = {
         type: 'steering',
-        value: this.state.steering,
+        value: this.currentDirection,
       };
       this.ws.send(JSON.stringify(steeringMessage));
     }
   };
 
-  subscribeHeading = async () => {
-    await Location.watchHeadingAsync((data) => {
-      if (this.state.center === null) {
-        this.setState({center: data.trueHeading});
+  computeOrientation(accelerometerData) {
+    let {x, y, z} = accelerometerData;
+    const roll = Math.atan2(y, z) * 57.2957795;
+    const pitch = Math.atan2((-1 * x), Math.pow((y * y) + (z * z), 0.5)) * 57.2957795;
+
+    let mLastPitch = this.mFilters[0].append(pitch);
+    let mLastRoll = this.mFilters[1].append(roll);
+
+    switch (this.currentDirection) {
+      case RIGHT: {
+        if (mLastPitch < PITCH_THRESHOLD) {
+          this.currentDirection = CENTER;
+        }
+        break;
       }
-      this.setState({heading: data.trueHeading});
-      this.calcSteering();
+      case LEFT: {
+        if (mLastPitch > -PITCH_THRESHOLD) {
+          this.currentDirection = CENTER;
+        }
+        break;
+      }
+      case CENTER: {
+        if (mLastPitch > PITCH_THRESHOLD) {
+          this.currentDirection = RIGHT;
+        } else {
+          if (mLastPitch < -PITCH_THRESHOLD) {
+            this.currentDirection = LEFT;
+          } else break;
+        }
+      }
+    }
+  }
+
+  _subscribe = () => {
+    Accelerometer.setUpdateInterval(30);
+    Accelerometer.addListener(accelerometerData => {
+      this.computeOrientation(accelerometerData);
       this.sendSteering();
     });
   };
 
-  _getLocationAsync = async () => {
-    let {status} = await Permissions.askAsync(Permissions.LOCATION);
-    if (status !== 'granted') {
-      this.setState({
-        errorMessage: 'Permission to access location was denied',
-      });
-    }
-  };
-
   async componentDidMount() {
-    if (Platform.OS === 'android' && !Constants.isDevice) {
-      this.setState({
-        errorMessage: 'Oops, this will not work on Sketch in an Android emulator. Try it on your device!',
-      });
-    } else {
-      this._getLocationAsync();
-    }
-    await this.subscribeHeading();
+    this._subscribe();
   }
-
-  setCenter = () => {
-    this.setState({center: this.state.heading});
-    this.calcSteering();
-    this.sendSteering();
-  };
 
   render() {
     return (
@@ -240,16 +258,7 @@ export class HomeScreen extends React.Component {
           </Layout>
         </Layout>
         <Layout style={{alignItems: 'center', marginTop: 20}}>
-          <Text style={styles.text}>
-            Heading: {this.state.heading.toFixed(1)}
-          </Text>
-          <Text style={styles.text}>
-            Steering: {this.state.steering.toFixed(2)}
-          </Text>
-          <Button style={styles.buttonStyle} icon={IconNav} onPress={this.setCenter}>
-            SET CENTER
-          </Button>
-          <Button style={styles.buttonStyle} icon={IconGo} onPress={this.onMovePress}>
+          <Button style={styles.buttonStyle} icon={IconNav} onPress={this.onMovePress}>
             MOVE
           </Button>
           <Button style={styles.buttonStyle} icon={IconStop} onPress={this.onStopPress}>
