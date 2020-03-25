@@ -27,7 +27,7 @@ const RIGHT = 0.4;
 const CENTER = 0;
 const LEFT = -RIGHT;
 
-const PITCH_THRESHOLD = 8;
+const PITCH_THRESHOLD = 5;
 
 export class HomeScreen extends React.Component {
   state = {
@@ -163,19 +163,6 @@ export class HomeScreen extends React.Component {
     }
   };
 
-  calcSteering = () => {
-    let steer_dead_zone = 0.22;
-    let change = (this.state.heading - this.state.center + 540) % 360 - 180;
-    let steer = change / 90;
-    // Add dead zones
-    if (steer > 0) {
-      steer += steer_dead_zone;
-    } else if (steer < 0) {
-      steer -= steer_dead_zone;
-    }
-    this.setState({steering: steer});
-  };
-
   sendSteering = () => {
     if (this.ws !== null && this.ws.readyState === 1) {
       // Find steering
@@ -221,7 +208,7 @@ export class HomeScreen extends React.Component {
   }
 
   _subscribe = () => {
-    Accelerometer.setUpdateInterval(30);
+    Accelerometer.setUpdateInterval(20);
     Accelerometer.addListener(accelerometerData => {
       this.computeOrientation(accelerometerData);
       this.sendSteering();
