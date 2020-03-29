@@ -1,7 +1,7 @@
 import React from 'react';
 import {StyleSheet, SafeAreaView} from "react-native";
 import {EvaIconsPack} from '@ui-kitten/eva-icons';
-import {Accelerometer} from 'expo-sensors';
+import { Magnetometer as sensor } from 'expo-sensors';
 import {ApplicationProvider, IconRegistry, Icon, Layout, Text, Button, Modal, Input} from '@ui-kitten/components';
 import {mapping} from '@eva-design/eva';
 import {theme} from './themes';
@@ -23,7 +23,7 @@ const IconStop = (style) => (
   <Icon {...style} name='stop-circle'/>
 );
 
-const RIGHT = 0.4;
+const RIGHT = 0.3;
 const CENTER = 0;
 const LEFT = -RIGHT;
 
@@ -46,6 +46,7 @@ export class HomeScreen extends React.Component {
   ws = null;
   currentDirection = 0;
   mFilters = new Array(2);
+  heading = null;
 
   constructor(props) {
     super(props);
@@ -144,6 +145,7 @@ export class HomeScreen extends React.Component {
   };
 
   onMovePress = () => {
+    this.heading = null; // Reset heading
     if (this.ws !== null && this.ws.readyState === 1) {
       let moveMsg = {
         type: 'move',
@@ -174,43 +176,37 @@ export class HomeScreen extends React.Component {
     }
   };
 
-  computeOrientation(accelerometerData) {
-    let {x, y, z} = accelerometerData;
+  computeOrientation(data) {
+    let {x, y, z} = data;
     const roll = Math.atan2(y, z) * 57.2957795;
-    const pitch = Math.atan2((-1 * x), Math.pow((y * y) + (z * z), 0.5)) * 57.2957795;
-
+    let pitch = Math.atan2((-1 * x), Math.pow((y * y) + (z * z), 0.5)) * 57.2957795;
+    if (this.heading === null) {
+      this.heading = pitch;
+    }
+    pitch = (pitch - this.heading + 540) % 360 - 180;
     let mLastPitch = this.mFilters[0].append(pitch);
     let mLastRoll = this.mFilters[1].append(roll);
-
-    switch (this.currentDirection) {
-      case RIGHT: {
-        if (mLastPitch < PITCH_THRESHOLD) {
-          this.currentDirection = CENTER;
-        }
-        break;
-      }
-      case LEFT: {
-        if (mLastPitch > -PITCH_THRESHOLD) {
-          this.currentDirection = CENTER;
-        }
-        break;
-      }
-      case CENTER: {
-        if (mLastPitch > PITCH_THRESHOLD) {
-          this.currentDirection = RIGHT;
-        } else {
-          if (mLastPitch < -PITCH_THRESHOLD) {
-            this.currentDirection = LEFT;
-          } else break;
-        }
-      }
+    let steer = mLastPitch / 60;
+    let steer_dead_zone = 0.20;
+    // Add dead zones
+    if (steer > 0) {
+      steer += steer_dead_zone;
+    } else if (steer < 0) {
+      steer -= steer_dead_zone;
     }
+    if (steer > 1) {
+      steer = 1
+    }
+    if (steer < -1) {
+      steer = -0.99
+    }
+    this.currentDirection = steer;
   }
 
   _subscribe = () => {
-    Accelerometer.setUpdateInterval(20);
-    Accelerometer.addListener(accelerometerData => {
-      this.computeOrientation(accelerometerData);
+    sensor.setUpdateInterval(20);
+    sensor.addListener(data => {
+      this.computeOrientation(data);
       this.sendSteering();
     });
   };
