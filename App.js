@@ -16,7 +16,7 @@ const IconServer = (style) => (
 );
 
 const IconStop = (style) => (
-  <Icon {...style} name='stop-circle'/>
+  <Icon {...style} name='square'/>
 );
 
 export class HomeScreen extends React.Component {
@@ -207,7 +207,7 @@ export class HomeScreen extends React.Component {
 
   render() {
     return (
-      <SafeAreaView style={{flex: 1, paddingTop: '30%'}}>
+      <SafeAreaView style={{flex: 1, paddingTop: '25%'}}>
         <Layout style={{alignItems: 'center'}}>
           <Layout style={styles.rowContainer}>
             <Text>KPH</Text>
