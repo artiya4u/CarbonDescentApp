@@ -15,19 +15,9 @@ const IconServer = (style) => (
   <Icon {...style} name='link'/>
 );
 
-const IconGo = (style) => (
-  <Icon {...style} name='arrowhead-up'/>
-);
-
 const IconStop = (style) => (
   <Icon {...style} name='stop-circle'/>
 );
-
-const RIGHT = 0.3;
-const CENTER = 0;
-const LEFT = -RIGHT;
-
-const PITCH_THRESHOLD = 5;
 
 export class HomeScreen extends React.Component {
   state = {
@@ -242,7 +232,7 @@ export class HomeScreen extends React.Component {
         </Layout>
         <Layout style={{alignItems: 'center', marginTop: 20}}>
           <Button style={styles.buttonStyle} icon={IconNav} onPress={this.onMovePress}>
-            MOVE
+            GO
           </Button>
           <Button style={styles.buttonStyle} icon={IconStop} onPress={this.onStopPress}>
             STOP
