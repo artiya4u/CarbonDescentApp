@@ -2,6 +2,7 @@ import React from 'react';
 import {StyleSheet, SafeAreaView} from "react-native";
 import {EvaIconsPack} from '@ui-kitten/eva-icons';
 import { Magnetometer as sensor } from 'expo-sensors';
+import * as Network from 'expo-network';
 import {ApplicationProvider, IconRegistry, Icon, Layout, Text, Button, Modal, Input} from '@ui-kitten/components';
 import {mapping} from '@eva-design/eva';
 import {theme} from './themes';
@@ -21,7 +22,7 @@ const IconStop = (style) => (
 
 export class HomeScreen extends React.Component {
   state = {
-    server: 'ws://192.168.1.100:8088/',
+    server: '',
     speed: 'n/a',
     cadence: 'n/a',
     heartrate: 'n/a',
@@ -55,6 +56,23 @@ export class HomeScreen extends React.Component {
         this.setState(update)
       }
     }, 3000)
+  };
+
+  findServer = async () => {
+    let ip = await Network.getIpAddressAsync();
+    const serverPort = 48088;
+    if (ip.startsWith('192.168')) {
+      let baseIp = ip.slice(0, ip.lastIndexOf('.') + 1);
+      for (let i = 1; i < 256; i++) {
+        let toTestIp = baseIp + i;
+        let serverURL = `ws://${toTestIp}:${serverPort}/`;
+        let ws = new WebSocket(serverURL);
+        ws.onopen = () => {
+          console.log('FOUND SERVER ON', serverURL);
+          this.state.server = serverURL;
+        };
+      }
+    }
   };
 
   connectToServer = () => {
@@ -202,6 +220,10 @@ export class HomeScreen extends React.Component {
   };
 
   async componentDidMount() {
+    await this.findServer();
+    setTimeout( () => {
+      this.connectToServer();
+    }, 3000); // Wait 3 secs to automatic find server.
     this._subscribe();
   }
 
@@ -239,7 +261,7 @@ export class HomeScreen extends React.Component {
           </Button>
           <Layout style={{marginTop: 40}}/>
           <Button style={styles.buttonStyle} icon={IconServer} onPress={this.onEditServerPress}>
-            CONNECT SERVER
+            SERVER CONNECTION
           </Button>
         </Layout>
         <Modal
